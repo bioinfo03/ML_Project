@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Protein Hydrophobicity Analyzer</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 40px auto;
+            padding: 20px;
+            background: #f4f7fb;
+        }
+        .container {
+            background: white;
+            padding: 25px;
+            border-radius: 12px;
+        }
+        input, textarea, button {
+            width: 100%;
+            padding: 10px;
+            margin: 8px 0 18px;
+            box-sizing: border-box;
+        }
+        button {
+            background: #1769aa;
+            color: white;
+            border: none;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+        label { font-weight: bold; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>Protein Hydrophobicity Analyzer</h1>
+
+{% if error %}
+<p style="color: red;"><strong>Error:</strong> {{ error }}</p>
+{% endif %}
+
+    <p>Enter a protein accession number or paste a protein sequence.</p>
+
+    <form action="/analyze" method="POST">
+        <label for="accession">NCBI Protein Accession</label>
+        <input type="text" id="accession" name="accession"
+               placeholder="Example: Q26473">
+
+        <label for="sequence">Or paste a protein sequence</label>
+        <textarea id="sequence" name="sequence" rows="6"
+                  placeholder="Example: MRAALVAVA..."></textarea>
+
+        <label for="window_size">Window size</label>
+        <input type="number" id="window_size" name="window_size"
+               value="19" min="1" required>
+
+        <label for="threshold">Hydrophobicity threshold</label>
+        <input type="number" id="threshold" name="threshold"
+               value="1.6" step="0.1" required>
+
+        <button type="submit">Analyze Protein</button>
+    </form>
+</div>
+</body>
+</html>
+
+
+(base) [madhvi@iitdscfbio templates]$
+(base) [madhvi@iitdscfbio templates]$ cat result.html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Protein Analysis Results</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 1000px;
+               margin: 30px auto; padding: 20px; color: #222; }
+        .card { padding: 18px; margin: 18px 0; border: 1px solid #ddd;
+                border-radius: 10px; }
+        .motif { color: blue; font-weight: bold; }
+        .high { color: red; font-weight: bold; }
+        .sequence { overflow-wrap: anywhere; line-height: 2; }
+        img { max-width: 100%; }
+        a { color: #1769aa; }
+    </style>
+</head>
+<body>
+    <h1>Protein Analysis Results</h1>
+
+    <div class="card">
+        <h2>Protein information</h2>
+        <p><strong>Source:</strong> {{ source }}</p>
+        {% if accession %}
+        <p><strong>Accession:</strong> {{ accession }}</p>
+        <p><a href="{{ ncbi_link }}" target="_blank" rel="noopener">
+            View protein record on NCBI</a></p>
+       <p>
+    <a href="{{ url_for('export_protein_excel', accession=accession) }}">
+        Download protein details as Excel
+    </a>
+</p>
+         {% endif %}
+        <p><strong>Sequence length:</strong> {{ sequence|length }} amino acids</p>
+        <p><strong>Window size:</strong> {{ window_size }}</p>
+        <p><strong>Threshold:</strong> {{ threshold }}</p>
+    </div>
+
+    <div class="card">
+        <h2>Motif results</h2>
+        {% if qualifying %}
+            <p>Qualifying motifs found: {{ qualifying|length }}</p>
+            <ul>
+            {% for hit in qualifying %}
+                <li>{{ hit.motif }} — positions {{ hit.start }}–{{ hit.end }}</li>
+            {% endfor %}
+            </ul>
+        {% else %}
+            <p>No qualifying pattern found in a high-hydrophobicity region.</p>
+        {% endif %}
+    </div>
+
+    <div class="card">
+        <h2>Kyte–Doolittle hydrophobicity plot</h2>
+        <p>Red horizontal line: threshold of {{ threshold }}.</p>
+        <img src="{{ url_for('static', filename='kd_plot.png') }}"
+             alt="Kyte-Doolittle hydrophobicity plot">
+    </div>
+
+    <div class="card">
+        <h2>Protein sequence</h2>
+        <p>
+            <span class="motif">Blue = motif</span> |
+            <span class="high">Red = high-hydrophobicity window</span>
+        </p>
+        <p class="sequence">
+            {% for residue in residues %}
+                <span class="{{ residue.class_name }}"
+                      title="Position {{ residue.position }}">
+                    {{ residue.aa }}
+                </span>{% if loop.index % 10 == 0 %} {% endif %}
+            {% endfor %}
+        </p>
+    </div>
+
+    <div class="card">
+        <h2>TMpred</h2>
+        <p>
+            <a href="https://www.ch.embnet.org/software/TMPRED_form.html"
+               target="_blank" rel="noopener">
+                Open the TMpred protein hydrophobicity prediction tool
+            </a>
+        </p>
+        <p>Submit your sequence to TMpred separately to obtain its prediction.</p>
+    </div>
+
+    <p><a href="/">← Analyze another protein</a></p>
+</body>
+</html>
